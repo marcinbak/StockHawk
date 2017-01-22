@@ -7,6 +7,8 @@ import android.app.Dialog;
 import android.app.DialogFragment;
 import android.content.DialogInterface;
 import android.os.Bundle;
+import android.text.InputFilter;
+import android.text.Spanned;
 import android.view.*;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -31,6 +33,19 @@ public class AddStockDialog extends DialogFragment {
 
     ButterKnife.bind(this, custom);
 
+    InputFilter filter = new InputFilter() {
+      public CharSequence filter(CharSequence source, int start, int end,
+                                 Spanned dest, int dstart, int dend) {
+        for (int i = start; i < end; i++) {
+          if (Character.isWhitespace(source.charAt(i))) {
+            return "";
+          }
+        }
+        return null;
+      }
+    };
+
+    stock.setFilters(new InputFilter[]{filter});
     stock.setOnEditorActionListener(new TextView.OnEditorActionListener() {
       @Override
       public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {

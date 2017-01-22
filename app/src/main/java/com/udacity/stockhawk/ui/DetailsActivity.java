@@ -1,10 +1,14 @@
 package com.udacity.stockhawk.ui;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.database.Cursor;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
@@ -12,7 +16,6 @@ import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.helper.ItemTouchHelper;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -24,13 +27,28 @@ import com.udacity.stockhawk.R;
 import com.udacity.stockhawk.data.Contract;
 import com.udacity.stockhawk.data.PrefUtils;
 import com.udacity.stockhawk.sync.QuoteSyncJob;
-import timber.log.Timber;
 
-public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor>,
-    SwipeRefreshLayout.OnRefreshListener,
-    StocksAdapter.StockAdapterOnClickHandler {
+import java.math.BigDecimal;
+import java.text.DateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
 
-  private static final int STOCK_LOADER = 0;
+import static com.udacity.stockhawk.data.Contract.Quote.COLUMN_HISTORY;
+import static com.udacity.stockhawk.data.Contract.Quote.COLUMN_SYMBOL;
+
+public class DetailsActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor>,
+    SwipeRefreshLayout.OnRefreshListener {
+
+  private final static String STOCK_CODE_EXTRA = "STOCK_CODE_EXTRA";
+
+  public static void start(Activity context, @NonNull String stockCode) {
+    Intent intent = new Intent(context, DetailsActivity.class);
+    intent.putExtra(STOCK_CODE_EXTRA, stockCode);
+    context.startActivity(intent);
+  }
+
+  private static final int STOCK_HISTORY_LOADER = 1;
   @SuppressWarnings("WeakerAccess")
   @BindView(R.id.recycler_view)
   RecyclerView       stockRecyclerView;
@@ -40,22 +58,20 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
   @SuppressWarnings("WeakerAccess")
   @BindView(R.id.error)
   TextView           error;
-  private StocksAdapter adapter;
 
-  @Override
-  public void onClick(String symbol) {
-    Timber.d("Symbol clicked: %s", symbol);
-    DetailsActivity.start(this, symbol);
-  }
+  private StockHistoryAdapter adapter;
+  private String              stockCode;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
 
-    setContentView(R.layout.activity_main);
+    setContentView(R.layout.activity_details);
     ButterKnife.bind(this);
 
-    adapter = new StocksAdapter(this, this);
+    stockCode = getIntent().getStringExtra(STOCK_CODE_EXTRA);
+
+    adapter = new StockHistoryAdapter(this, stockCode);
     stockRecyclerView.setAdapter(adapter);
     stockRecyclerView.setLayoutManager(new LinearLayoutManager(this));
 
@@ -64,23 +80,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     onRefresh();
 
     QuoteSyncJob.initialize(this);
-    getSupportLoaderManager().initLoader(STOCK_LOADER, null, this);
-
-    new ItemTouchHelper(new ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.RIGHT) {
-      @Override
-      public boolean onMove(RecyclerView recyclerView, RecyclerView.ViewHolder viewHolder, RecyclerView.ViewHolder target) {
-        return false;
-      }
-
-      @Override
-      public void onSwiped(RecyclerView.ViewHolder viewHolder, int direction) {
-        String symbol = adapter.getSymbolAtPosition(viewHolder.getAdapterPosition());
-        PrefUtils.removeStock(MainActivity.this, symbol);
-        getContentResolver().delete(Contract.Quote.makeUriForStock(symbol), null, null);
-      }
-    }).attachToRecyclerView(stockRecyclerView);
-
-
+    getSupportLoaderManager().initLoader(STOCK_HISTORY_LOADER, null, this);
   }
 
   private boolean networkUp() {
@@ -92,7 +92,6 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
   @Override
   public void onRefresh() {
-
     QuoteSyncJob.syncImmediately(this);
 
     if (!networkUp() && adapter.getItemCount() == 0) {
@@ -111,31 +110,12 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     }
   }
 
-  public void button(@SuppressWarnings("UnusedParameters") View view) {
-    new AddStockDialog().show(getFragmentManager(), "StockDialogFragment");
-  }
-
-  void addStock(String symbol) {
-    if (symbol != null && !symbol.isEmpty()) {
-
-      if (networkUp()) {
-        swipeRefreshLayout.setRefreshing(true);
-      } else {
-        String message = getString(R.string.toast_stock_added_no_connectivity, symbol);
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
-      }
-
-      PrefUtils.addStock(this, symbol);
-      QuoteSyncJob.syncImmediately(this);
-    }
-  }
-
   @Override
   public Loader<Cursor> onCreateLoader(int id, Bundle args) {
     return new CursorLoader(this,
         Contract.Quote.URI,
-        Contract.Quote.QUOTE_COLUMNS.toArray(new String[]{}),
-        null, null, Contract.Quote.COLUMN_SYMBOL);
+        new String[]{COLUMN_HISTORY},
+        COLUMN_SYMBOL + " = ?", new String[]{stockCode}, null);
   }
 
   @Override
@@ -145,14 +125,38 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     if (data.getCount() != 0) {
       error.setVisibility(View.GONE);
     }
-    adapter.setCursor(data);
+
+    data.moveToFirst();
+    int colIdx = data.getColumnIndex(COLUMN_HISTORY);
+    String[] history = data.getString(colIdx).split("\n");
+
+    List<StockHistoryModel> historyList = new ArrayList<>(history.length);
+    for (String item : history) {
+      String[] dayData = item.split(", ");
+
+      if (dayData.length != 3) {
+//      error
+        return;
+      }
+
+      float open = new BigDecimal(dayData[1]).floatValue();
+      float close = new BigDecimal(dayData[2]).floatValue();
+      float diff = close - open;
+      long dateMillis = Long.parseLong(dayData[0]);
+      String myString = DateFormat.getDateInstance(DateFormat.SHORT).format(new Date(dateMillis));
+
+      float percentageChange = diff / close;
+      historyList.add(new StockHistoryModel(dateMillis, myString, close, diff, percentageChange));
+    }
+
+    adapter.setData(historyList);
   }
 
 
   @Override
   public void onLoaderReset(Loader<Cursor> loader) {
     swipeRefreshLayout.setRefreshing(false);
-    adapter.setCursor(null);
+    adapter.setData(null);
   }
 
 
@@ -167,7 +171,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
   @Override
   public boolean onCreateOptionsMenu(Menu menu) {
-    getMenuInflater().inflate(R.menu.main_activity_settings, menu);
+    getMenuInflater().inflate(R.menu.details_activity_settings, menu);
     MenuItem item = menu.findItem(R.id.action_change_units);
     setDisplayModeMenuItemIcon(item);
     return true;
@@ -182,7 +186,15 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
       setDisplayModeMenuItemIcon(item);
       adapter.notifyDataSetChanged();
       return true;
+    } else if (id == R.id.action_show_graph) {
+      openGraphFragment();
+      return true;
     }
     return super.onOptionsItemSelected(item);
+  }
+
+  private void openGraphFragment() {
+    DialogFragment fragment = ChartFragment.newInstance(adapter.getData());
+    fragment.show(getSupportFragmentManager(), ChartFragment.class.getName());
   }
 }

@@ -18,7 +18,7 @@ import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.Locale;
 
-class StockAdapter extends RecyclerView.Adapter<StockAdapter.StockViewHolder> {
+class StocksAdapter extends RecyclerView.Adapter<StocksAdapter.StockViewHolder> {
 
   private final Context                    context;
   private final DecimalFormat              dollarFormatWithPlus;
@@ -27,7 +27,7 @@ class StockAdapter extends RecyclerView.Adapter<StockAdapter.StockViewHolder> {
   private       Cursor                     cursor;
   private final StockAdapterOnClickHandler clickHandler;
 
-  StockAdapter(Context context, StockAdapterOnClickHandler clickHandler) {
+  StocksAdapter(Context context, StockAdapterOnClickHandler clickHandler) {
     this.context = context;
     this.clickHandler = clickHandler;
 
@@ -53,7 +53,6 @@ class StockAdapter extends RecyclerView.Adapter<StockAdapter.StockViewHolder> {
 
   @Override
   public StockViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-
     View item = LayoutInflater.from(context).inflate(R.layout.list_item_quote, parent, false);
 
     return new StockViewHolder(item);
@@ -87,8 +86,6 @@ class StockAdapter extends RecyclerView.Adapter<StockAdapter.StockViewHolder> {
     } else {
       holder.change.setText(percentage);
     }
-
-
   }
 
   @Override
@@ -100,21 +97,15 @@ class StockAdapter extends RecyclerView.Adapter<StockAdapter.StockViewHolder> {
     return count;
   }
 
-
   interface StockAdapterOnClickHandler {
     void onClick(String symbol);
   }
 
   class StockViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
 
-    @BindView(R.id.symbol)
-    TextView symbol;
-
-    @BindView(R.id.price)
-    TextView price;
-
-    @BindView(R.id.change)
-    TextView change;
+    @BindView(R.id.symbol) TextView symbol;
+    @BindView(R.id.price)  TextView price;
+    @BindView(R.id.change) TextView change;
 
     StockViewHolder(View itemView) {
       super(itemView);
@@ -128,9 +119,6 @@ class StockAdapter extends RecyclerView.Adapter<StockAdapter.StockViewHolder> {
       cursor.moveToPosition(adapterPosition);
       int symbolColumn = cursor.getColumnIndex(Contract.Quote.COLUMN_SYMBOL);
       clickHandler.onClick(cursor.getString(symbolColumn));
-
     }
-
-
   }
 }

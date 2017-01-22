@@ -83,6 +83,8 @@ public final class QuoteSyncJob {
         for (HistoricalQuote it : history) {
           historyBuilder.append(it.getDate().getTimeInMillis());
           historyBuilder.append(", ");
+          historyBuilder.append(it.getOpen());
+          historyBuilder.append(", ");
           historyBuilder.append(it.getClose());
           historyBuilder.append("\n");
         }
@@ -132,10 +134,8 @@ public final class QuoteSyncJob {
 
 
   public static synchronized void initialize(final Context context) {
-
     schedulePeriodic(context);
     syncImmediately(context);
-
   }
 
   public static synchronized void syncImmediately(Context context) {
