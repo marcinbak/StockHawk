@@ -194,7 +194,12 @@ public class DetailsActivity extends AppCompatActivity implements LoaderManager.
   }
 
   private void openGraphFragment() {
-    DialogFragment fragment = ChartFragment.newInstance(adapter.getData());
+    List<StockHistoryModel> list = adapter.getData();
+    List<StockHistoryModel> newList = new ArrayList<>(list.size());
+    for (StockHistoryModel item : list) {
+      newList.add(0, item);
+    }
+    DialogFragment fragment = ChartFragment.newInstance(newList);
     fragment.show(getSupportFragmentManager(), ChartFragment.class.getName());
   }
 }
