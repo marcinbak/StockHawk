@@ -40,7 +40,7 @@ import static com.udacity.stockhawk.data.Contract.Quote.COLUMN_SYMBOL;
 public class DetailsActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor>,
     SwipeRefreshLayout.OnRefreshListener {
 
-  private final static String STOCK_CODE_EXTRA = "STOCK_CODE_EXTRA";
+  public final static String STOCK_CODE_EXTRA = "STOCK_CODE_EXTRA";
 
   public static void start(Activity context, @NonNull String stockCode) {
     Intent intent = new Intent(context, DetailsActivity.class);

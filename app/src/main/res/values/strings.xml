@@ -35,5 +35,10 @@
   <!-- TODO: Remove or change this placeholder text -->
   <string name="hello_blank_fragment">Hello blank fragment</string>
   <string name="stock_history">History values</string>
+  <string name="appwidget_text">EXAMPLE</string>
+  <string name="configure">Configure</string>
+  <string name="add_widget">Add widget</string>
+  <string name="title_widget_stock">Stocks</string>
+  <string name="empty_stock_list">No stock data available</string>
 
 </resources>

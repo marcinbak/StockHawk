@@ -63,7 +63,6 @@ class StocksAdapter extends RecyclerView.Adapter<StocksAdapter.StockViewHolder> 
 
     cursor.moveToPosition(position);
 
-
     holder.symbol.setText(cursor.getString(Contract.Quote.POSITION_SYMBOL));
     holder.price.setText(dollarFormat.format(cursor.getFloat(Contract.Quote.POSITION_PRICE)));
 
