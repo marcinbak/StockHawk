@@ -1,31 +1,27 @@
 package com.udacity.stockhawk.ui;
 
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
-import android.net.ConnectivityManager;
-import android.net.NetworkInfo;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
-import android.support.v4.app.DialogFragment;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.CursorLoader;
 import android.support.v4.content.Loader;
-import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.View;
-import android.widget.TextView;
-import android.widget.Toast;
 import butterknife.BindView;
 import butterknife.ButterKnife;
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.AxisBase;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.components.YAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.formatter.IAxisValueFormatter;
 import com.udacity.stockhawk.R;
 import com.udacity.stockhawk.data.Contract;
-import com.udacity.stockhawk.data.PrefUtils;
 import com.udacity.stockhawk.sync.QuoteSyncJob;
 
 import java.math.BigDecimal;
@@ -37,8 +33,7 @@ import java.util.List;
 import static com.udacity.stockhawk.data.Contract.Quote.COLUMN_HISTORY;
 import static com.udacity.stockhawk.data.Contract.Quote.COLUMN_SYMBOL;
 
-public class DetailsActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor>,
-    SwipeRefreshLayout.OnRefreshListener {
+public class DetailsActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor> {
 
   public final static String STOCK_CODE_EXTRA = "STOCK_CODE_EXTRA";
 
@@ -49,65 +44,25 @@ public class DetailsActivity extends AppCompatActivity implements LoaderManager.
   }
 
   private static final int STOCK_HISTORY_LOADER = 1;
-  @SuppressWarnings("WeakerAccess")
-  @BindView(R.id.recycler_view)
-  RecyclerView       stockRecyclerView;
-  @SuppressWarnings("WeakerAccess")
-  @BindView(R.id.swipe_refresh)
-  SwipeRefreshLayout swipeRefreshLayout;
-  @SuppressWarnings("WeakerAccess")
-  @BindView(R.id.error)
-  TextView           error;
 
-  private StockHistoryAdapter adapter;
-  private String              stockCode;
+  private List<StockHistoryModel> mHistoryItems;
+
+  @BindView(R.id.chart) LineChart mChart;
+
+  private String stockCode;
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
-
     setContentView(R.layout.activity_details);
     ButterKnife.bind(this);
 
     stockCode = getIntent().getStringExtra(STOCK_CODE_EXTRA);
 
-    adapter = new StockHistoryAdapter(this, stockCode);
-    stockRecyclerView.setAdapter(adapter);
-    stockRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-
-    swipeRefreshLayout.setOnRefreshListener(this);
-    swipeRefreshLayout.setRefreshing(true);
-    onRefresh();
-
     QuoteSyncJob.initialize(this);
     getSupportLoaderManager().initLoader(STOCK_HISTORY_LOADER, null, this);
-  }
 
-  private boolean networkUp() {
-    ConnectivityManager cm =
-        (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
-    NetworkInfo networkInfo = cm.getActiveNetworkInfo();
-    return networkInfo != null && networkInfo.isConnectedOrConnecting();
-  }
-
-  @Override
-  public void onRefresh() {
-    QuoteSyncJob.syncImmediately(this);
-
-    if (!networkUp() && adapter.getItemCount() == 0) {
-      swipeRefreshLayout.setRefreshing(false);
-      error.setText(getString(R.string.error_no_network));
-      error.setVisibility(View.VISIBLE);
-    } else if (!networkUp()) {
-      swipeRefreshLayout.setRefreshing(false);
-      Toast.makeText(this, R.string.toast_no_connectivity, Toast.LENGTH_LONG).show();
-    } else if (PrefUtils.getStocks(this).size() == 0) {
-      swipeRefreshLayout.setRefreshing(false);
-      error.setText(getString(R.string.error_no_stocks));
-      error.setVisibility(View.VISIBLE);
-    } else {
-      error.setVisibility(View.GONE);
-    }
+    setupChart();
   }
 
   @Override
@@ -120,12 +75,6 @@ public class DetailsActivity extends AppCompatActivity implements LoaderManager.
 
   @Override
   public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
-    swipeRefreshLayout.setRefreshing(false);
-
-    if (data.getCount() != 0) {
-      error.setVisibility(View.GONE);
-    }
-
     data.moveToFirst();
     int colIdx = data.getColumnIndex(COLUMN_HISTORY);
     String[] history = data.getString(colIdx).split("\n");
@@ -149,57 +98,56 @@ public class DetailsActivity extends AppCompatActivity implements LoaderManager.
       historyList.add(new StockHistoryModel(dateMillis, myString, close, diff, percentageChange));
     }
 
-    adapter.setData(historyList);
+    mHistoryItems = historyList;
+    setChartData();
   }
-
 
   @Override
   public void onLoaderReset(Loader<Cursor> loader) {
-    swipeRefreshLayout.setRefreshing(false);
-    adapter.setData(null);
+    mChart.setData(null);
   }
 
+  private void setupChart() {
+    XAxis xAxis = mChart.getXAxis();
+    xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+    xAxis.setAxisMinimum(0f);
+    xAxis.setGranularity(1f);
+    xAxis.setTextColor(Color.WHITE);
+    xAxis.setValueFormatter(new IAxisValueFormatter() {
+      @Override
+      public String getFormattedValue(float value, AxisBase axis) {
+        return mHistoryItems.get((int) value).date;
+      }
+    });
 
-  private void setDisplayModeMenuItemIcon(MenuItem item) {
-    if (PrefUtils.getDisplayMode(this)
-        .equals(getString(R.string.pref_display_mode_absolute_key))) {
-      item.setIcon(R.drawable.ic_percentage);
-    } else {
-      item.setIcon(R.drawable.ic_dollar);
+    mChart.getAxisLeft().setTextColor(Color.WHITE);
+    mChart.getAxisRight().setTextColor(Color.WHITE);
+    mChart.getLegend().setTextColor(Color.WHITE);
+  }
+
+  private void setChartData() {
+    List<Entry> entries = new ArrayList<>(mHistoryItems.size());
+
+    int counter = 0;
+    for (StockHistoryModel item : mHistoryItems) {
+      Entry e = new Entry(counter, item.closeValue);
+      entries.add(e);
+      counter++;
     }
-  }
 
-  @Override
-  public boolean onCreateOptionsMenu(Menu menu) {
-    getMenuInflater().inflate(R.menu.details_activity_settings, menu);
-    MenuItem item = menu.findItem(R.id.action_change_units);
-    setDisplayModeMenuItemIcon(item);
-    return true;
-  }
+    LineDataSet set = new LineDataSet(entries, getString(R.string.stock_history));
+    LineData linearData = new LineData(set);
+    set.setDrawCircles(false);
+    set.setColor(Color.WHITE);
+    set.setLineWidth(2.5f);
+    set.setFillColor(Color.WHITE);
+    set.setMode(LineDataSet.Mode.LINEAR);
+    set.setDrawValues(true);
+    set.setValueTextSize(10f);
+    set.setValueTextColor(Color.WHITE);
 
-  @Override
-  public boolean onOptionsItemSelected(MenuItem item) {
-    int id = item.getItemId();
+    set.setAxisDependency(YAxis.AxisDependency.LEFT);
 
-    if (id == R.id.action_change_units) {
-      PrefUtils.toggleDisplayMode(this);
-      setDisplayModeMenuItemIcon(item);
-      adapter.notifyDataSetChanged();
-      return true;
-    } else if (id == R.id.action_show_graph) {
-      openGraphFragment();
-      return true;
-    }
-    return super.onOptionsItemSelected(item);
-  }
-
-  private void openGraphFragment() {
-    List<StockHistoryModel> list = adapter.getData();
-    List<StockHistoryModel> newList = new ArrayList<>(list.size());
-    for (StockHistoryModel item : list) {
-      newList.add(0, item);
-    }
-    DialogFragment fragment = ChartFragment.newInstance(newList);
-    fragment.show(getSupportFragmentManager(), ChartFragment.class.getName());
+    mChart.setData(linearData);
   }
 }

@@ -2,15 +2,12 @@
   <string name="app_name">Stock Hawk</string>
 
   <string name="pref_stocks_initialized_key" translatable="false">initialized</string>
+  <string name="pref_stocks_key" translatable="false">stocks</string>
+  <string name="pref_display_mode_key" translatable="false">displayMode</string>
+  <string name="pref_display_mode_default" translatable="false">@string/pref_display_mode_percentage_key</string>
 
-  <string name="pref_stocks_key">stocks</string>
-
-
-  <string name="pref_display_mode_key">displayMode</string>
-  <string name="pref_display_mode_default">@string/pref_display_mode_percentage_key</string>
-
-  <string name="pref_display_mode_absolute_key">absolute</string>
-  <string name="pref_display_mode_percentage_key">percentage</string>
+  <string name="pref_display_mode_absolute_key" translatable="false">absolute</string>
+  <string name="pref_display_mode_percentage_key" translatable="false">percentage</string>
 
   <string name="default_stocks_yahoo" translatable="false">YHOO</string>
   <string name="default_stocks_apple" translatable="false">AAPL</string>
@@ -32,10 +29,7 @@
   <string name="add_stock_button">Add stock</string>
   <string name="action_show_chart">Open chart view.</string>
 
-  <!-- TODO: Remove or change this placeholder text -->
-  <string name="hello_blank_fragment">Hello blank fragment</string>
   <string name="stock_history">History values</string>
-  <string name="appwidget_text">EXAMPLE</string>
   <string name="configure">Configure</string>
   <string name="add_widget">Add widget</string>
   <string name="title_widget_stock">Stocks</string>
